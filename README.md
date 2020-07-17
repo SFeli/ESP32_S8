@@ -1,5 +1,5 @@
 # ESP32_S8
-Evaluating the CO2-Sensor S8 from SenseAir.  
+Evaluating the CO2-Sensor S8 from SenseAir.  https://senseair.com/products/size-counts/s8-5/  
 
 Code for Arduino (.ino) with some routines to read all register and another code for esp-idf in C. (.c)
 
