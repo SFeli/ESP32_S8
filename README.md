@@ -1,7 +1,7 @@
 # ESP32_S8
 Evaluating the CO2-Sensor S8 from SenseAir.  
 
-Code for Arduino with some routines to read all register.  
+Code for Arduino (.ino) with some routines to read all register and another code for esp-idf in C. (.c)
 
 # Technical information:  
 There is no standard library aviable now - since the functionality / documentation is poor.
