@@ -2,8 +2,8 @@
 Vorlage : https://github.com/liutyi/esp32-oled-senseair/blob/787e3901e96e5c13aa463619f402b9873a8df80c/wemos-simple_co2meter.ino
 Vorlage : https://github.com/Alexey-Tsarev/SensorsBox/blob/0b3699d5d33254caaf5594c4bb6daf278c9c700c/src/SensorsBox-firmware/SenseAirS8.cpp
 Vorlage: https://github.com/funnybrum/AQMv2/blob/master/src/S8.h    <- send and validate
-//   Board = esp32dev
-//   Anschlüsse Pin 21 und Pin 22
+//   Board      : esp32dev
+//   Anschlüsse : Pin 21 und Pin 22
 //   Kommunikationsformat mit SenseAir
 //   byte Request[] = {0xFE, 0X04, 0X00, 0X03, 0X00, 0X01, 0XD5, 0XC5};      lt. Doc von SenseAir TDE2067
 //   0     FE    any Address
@@ -17,6 +17,7 @@ Vorlage: https://github.com/funnybrum/AQMv2/blob/master/src/S8.h    <- send and 
 //   2,3   02 03 Value of response (eg. CO-Value) (depending on requested registers)
 //   5,6   D5 C5 CRC Low / high
 */
+#include <stdio.h>
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -25,9 +26,10 @@ Vorlage: https://github.com/funnybrum/AQMv2/blob/master/src/S8.h    <- send and 
 #include "esp_system.h"
 #include "driver/uart.h"            // UART - Communication
 #include "string.h"
+#include "driver/gpio.h"
 
-#define TXD2 21
-#define RXD2 22
+#define TXD2 21     // PIN 21
+#define RXD2 22     // PIN 22
 #define RTS2 -1
 #define CTS2 -1
 
@@ -35,8 +37,8 @@ Vorlage: https://github.com/funnybrum/AQMv2/blob/master/src/S8.h    <- send and 
 unsigned long int ReadCRC, DataCRC;     // Control-ReturnCodes to compare Readed against Calculated
 
 char CO2req[] = {0xFE, 0x04, 0x00, 0x03, 0x00, 0x01, 0xD5, 0xC5};   // Request CO2-Value
-char ABCreq[] = {0xFE, 0X03, 0X00, 0X1F, 0X00, 0X01, 0XA1, 0XC3};   // Request ABC-Interval in [d] 1f in Hex -> 31 dezimal
-char FWreq[] = {0xFE, 0x04, 0x00, 0x1C, 0x00, 0x01, 0xE4, 0x03};    // FirmWare     
+char ABCreq[] = {0xFE, 0X03, 0X00, 0X1F, 0X00, 0X01, 0XA1, 0XC3};   // Request ABC-Interval in [h] 1f in Hex -> 31 dezimal
+char FWreq[] = {0xFE, 0x04, 0x00, 0x1C, 0x00, 0x01, 0xE4, 0x03};    // Readout FirmWareversion    
 char ID_Hi[] = {0xFE, 0x04, 0x00, 0x1D, 0x00, 0x01, 0xB5, 0xC3};    // Sensor ID hi    
 char ID_Lo[] = {0xFE, 0x04, 0x00, 0x1E, 0x00, 0x01, 0x45, 0xC3};    // Sensor ID lo    // in Hex 071dbfe4
 
@@ -49,11 +51,12 @@ void init()
         .data_bits = UART_DATA_8_BITS,
         .parity    = UART_PARITY_DISABLE,
         .stop_bits = UART_STOP_BITS_1,
-        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE
+        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
+        .source_clk = UART_SCLK_DEFAULT,                 // neu 
     };
-    uart_param_config(UART_NUM_1, &uart_config);            // 1. setting communication parameter
-    uart_set_pin(UART_NUM_1, TXD2, RXD2, RTS2, CTS2);       // 2. setting communication pins
-    uart_driver_install(UART_NUM_1, BUF_SIZE * 2, 0, 0, NULL, 0);   // 3. driver installation
+    ESP_ERROR_CHECK(uart_driver_install(UART_NUM_1, BUF_SIZE * 2, 0, 0, NULL, 0));   // 1. driver installation
+    ESP_ERROR_CHECK(uart_param_config(UART_NUM_1, &uart_config1));           // 2. setting communication parameter
+    ESP_ERROR_CHECK(uart_set_pin(UART_NUM_1, TXD2, RXD2, RTS2, CTS2));       // 3. setting communication pins
 }
 
 int send_Req(const char* data, int Req_len)
@@ -82,6 +85,7 @@ unsigned short int ModBus_CRC(unsigned char * buf, int len)
 static void get_info()
 {
     uint8_t* vResponse = (uint8_t*) malloc(BUF_SIZE+1);
+    //  Read ABC-Period - automativ Baseline Correction 
     send_Req(ABCreq, 8);
     vTaskDelay(2000 / portTICK_PERIOD_MS);
     int rxBytes = uart_read_bytes(UART_NUM_1, vResponse, BUF_SIZE, 1000 / portTICK_PERIOD_MS);
@@ -94,6 +98,21 @@ static void get_info()
     {
         ESP_LOGI("Error", "CRC-Fehler %ld ungleich %ld", ReadCRC, DataCRC);
     }
+    
+    //  Read Firmware 
+    send_Req(FWreq, 8);
+    vTaskDelay(2000 / portTICK_PERIOD_MS);
+    rxBytes = uart_read_bytes(UART_NUM_1, vResponse, BUF_SIZE, 1000 / portTICK_PERIOD_MS);
+    ReadCRC = (uint16_t)vResponse[6] * 256 + (uint16_t)vResponse[5];
+    DataCRC = ModBus_CRC(vResponse, 5);
+    if (DataCRC == ReadCRC) {
+        ESP_LOGI("Info", "Firmware: %d ", vResponse[3] * 256 + vResponse[4]);
+    }
+        else
+    {
+        ESP_LOGI("Error", "CRC-Fehler %ld ungleich %ld", ReadCRC, DataCRC);
+    }
+    
 //  Read Sensor ID - Unique ID of the S8 Sensor like 071dbfe4
     send_Req(ID_Hi, 8);
     vTaskDelay(2000 / portTICK_PERIOD_MS);
