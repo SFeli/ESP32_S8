@@ -1,9 +1,9 @@
 /* For Senseair S8 004-0-0053
-Vorlage : https://github.com/liutyi/esp32-oled-senseair/blob/787e3901e96e5c13aa463619f402b9873a8df80c/wemos-simple_co2meter.ino
-Vorlage : https://github.com/Alexey-Tsarev/SensorsBox/blob/0b3699d5d33254caaf5594c4bb6daf278c9c700c/src/SensorsBox-firmware/SenseAirS8.cpp
-//   Board: ESP-Dev
-//   Anschlüsse Pin 21 und Pin 22
-//   Kommunikationsformat mit SenseAir
+Vorlage: https://github.com/liutyi/esp32-oled-senseair/blob/787e3901e96e5c13aa463619f402b9873a8df80c/wemos-simple_co2meter.ino
+Vorlage: https://github.com/Alexey-Tsarev/SensorsBox/blob/0b3699d5d33254caaf5594c4bb6daf278c9c700c/src/SensorsBox-firmware/SenseAirS8.cpp
+//   Board:      ESP32-Dev
+//   Anschlüsse: Pin 21 und Pin 22
+//   Kommunikationsformat mit SenseAir S8
 //   byte Request[] = {0xFE, 0X04, 0X00, 0X03, 0X00, 0X01, 0XD5, 0XC5};      lt. Doc von SenseAir TDE2067
 //   0     FE    any Address
 //   1     04    function code  (03 read hold reg / 04 read inp. register / 06 write)
@@ -38,7 +38,7 @@ byte ID_Hi[] = {0xFE, 0x04, 0x00, 0x1D, 0x00, 0x01, 0xB5, 0xC3};    // Sensor ID
 byte ID_Lo[] = {0xFE, 0x04, 0x00, 0x1E, 0x00, 0x01, 0x45, 0xC3};    // Sensor ID lo   49124     191 / 228 e.g. in Hex 071dbfe4
 //byte Tstreq[] = {0xFE, 0x03, 0x00, 0x01, 0x00, 0x01, 0xE4, 0x03};   // Read the holding register
 //byte Tstreq[] = {0xFE, 0x04, 0x00, 0x01, 0x00, 0x01, 0xE4, 0x03}; // Read the input Register
-byte Tstreq[] = {0xFE, 0x44, 0X00, 0X01, 0X02, 0X9F, 0X25};       // undocumented function 44
+byte Tstreq[] = {0xFE, 0x44, 0X00, 0X01, 0X02, 0X9F, 0X25};         // undocumented function 44
 int Test_len = 7;               // length of Testrequest in case of function 44 only 7 otherwise 8
 
 void send_Request (byte * Request, int Re_len)
@@ -81,7 +81,7 @@ unsigned short int ModBus_CRC(unsigned char * buf, int len)
         crc ^= 0xA001;
       }
       else                            // else LSB is not set
-        crc >>= 1;                    // Just shift right
+        crc >>= 1;                    // just shift right
     }
   }  // Note, this number has low and high bytes swapped, so use it accordingly (or swap bytes)
   return crc;  
@@ -132,7 +132,7 @@ void setup() {
   Serial.println("");
 
   Serial.print("FirmWare  : ");
-  send_Request(FWreq, 8);                // Send Request for Firmwar to the Sensor
+  send_Request(FWreq, 8);             // send Request for Firmware to the Sensor
   read_Response(7);                   // get Response (Firmware 334) from the Sensor
   Serial.printf("%02d%02d", Response[3], Response[4]);
   Serial.println("");
